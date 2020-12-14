@@ -3,13 +3,14 @@
 こんにちは。現在アプリボットで内定者バイトをしている伊藤です。
 今回は、schemalexを使用したマイグレーションファイルの自動生成の手法について紹介したいと思います。
 
+[今回利用するリポジトリ](https://github.com/naoto67/schemalex.git)
 
 ### 導入背景
 
 現在担当しているプロジェクトは絶賛開発段階で、MySQLのスキーマは変更される度にDBをリセットしています。
 つまりマイグレーション管理が必要ない状態です。
-しかし今後リリースする際には毎回リセットするわけにはいかないので、
-今回マイグレーションファイルを自動で生成するツールを作成することになりました。
+しかし今後リリースした後には毎回リセットするわけにはいかないので、
+今回リリース後に必要となるマイグレーションファイルを自動で生成するツールを作成することになりました。
 
 ### 構成
 
@@ -28,20 +29,20 @@
     └── xxxx_migration_gen.up.sql
 ```
 
-### Schemalexについて）
+### Schemalexについて
 
 [schemalex](https://github.com/schemalex/schemalex)
 
 > This tool can be used to generate the difference, or more precisely, the statements required to migrate from/to, between two MySQL schema.
 >> 2つのMySQLのスキーマからマイグレーションに必要な差分を生成するツール
 
- このスキーマには、ローカルファイルやMySQLのデータソースなどが指定できる。
+このSchemelexに渡すスキーマには、ローカルファイルやMySQLのデータソースなどが指定できる。
 
 ### 前準備
 
-初期のDBのスキーマの定義と、マイグレーション用のMySQLコンテナを用意しておきます。
+初期のDBのスキーマと、マイグレーション用のMySQLコンテナを用意しておきます。
 
-`init/1_main.up.sql`
+`ddl/init/1_main.up.sql`
 
 ```sql
 DROP TABLE IF EXISTS users;
@@ -69,12 +70,12 @@ services:
 
 ### 実装
 
-#### ソースコード
-
 1. MySQLコンテナに `ddl/migration` 以下のマイグレーションファイルを使用してマイグレーションを実行
 2. コンテナのDBをダンプ（golang-migrate で生成されるschema_migrationsを除外）
 3. schemadiff を使用して `ddl/init/1_main.up.sql` と ダンプしたファイルを比較
 4. 比較結果から新たなマイグレーションファイルを作成
+
+#### ソースコード
 
 ```bash
 #! /bin/bash
@@ -113,7 +114,7 @@ rm dump.sql
 
 `ddl/init/1_main.up.sql` を変更せずに実行
 
-```bas
+```bash
 .
 ├── init
 │   └── 1_main.up.sql
@@ -163,8 +164,9 @@ CREATE TABLE `user_items` ( `id` BIGINT (20) NOT NULL DEFAULT 0, PRIMARY KEY (`i
 ### まとめ
 
 2つの異なるスキーマからマイグレーションファイルを自動生成する手法を紹介しました。
-今回はサラッと紹介するためにシェルスクリプトのみでの実装になりましたが、実際の運用コードでは `github.com/urfave/cli` を使用してgoのツールとして作成しています。
+今回はサラッと紹介するためにシェルスクリプトのみでの実装になりましたが、実際のプロジェクトコードでは `github.com/urfave/cli` を使用してgoのツールとして作成しています。
 そちらでは、今回割愛した生成されるSQLのフォーマット機能や、ファイル名をUnixTimeではなく10001, 10002のように連番で出力する機能だったりを追加で実装しています。
+schemalex大変使い心地がよかったので、ぜひ試してみてください！
 
 ### おまけ
 
@@ -183,6 +185,6 @@ CREATE TABLE `users` (
 ) ENGINE = InnoDB, DEFAULT CHARACTER SET = utf8mb4;%
 ```
 
-この `schemalint` はALTER文が含まれているものに対しては、うまく動作しないため、そのまま導入するのは少しむずかしいかなと思ってます。
-まとめに、運用コードにはフォーマット機能が入っているという話をしましたが、そこではこのschemalintを使用していますが、文字列走査をしてから `schemalint` に流すといった形を取っています。
-LinterはLinterで完結させたいなと少し思っているので、なにか良いツールがあれば教えていただけると嬉しいです。
+この `schemalint` は ALTER文が含まれているものに対しては、うまく動作しないためそのまま導入するのは少し難しいと思ってます。
+まとめに、プロジェクトコードにはフォーマット機能が入っているという話をしましたが、そこではこの `schemalint` を使用していますが、文字列走査をしてから CREATE文のみ `schemalint` に流すといった形を取っています。
+LinterはLinterで完結させたいなと少し思っているので、なにか良いツールがあれば教えていただけると助かります！
